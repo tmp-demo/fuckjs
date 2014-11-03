@@ -1,7 +1,9 @@
-/tmp demo engine
-================
+FuckJS by /tmp
+==============
 
-Making demos for fun and profit.
+Invitation intro for DemoJS 2014.
+
+Released at Evoke 2014, see [pouet link](http://www.pouet.net/prod.php?which=63938).
 
 How to run
 ----------
@@ -13,10 +15,9 @@ Make sure you have the following installed and available from PATH:
  * java 7 (from Oracle)
  * node/npm
 
-Then run the following commands:
+Then run the following command (cygwin or linux):
 ```sh
-npm install
-node .
+./EXPORT.sh demojs2014-playground
 ```
 
-You can now open a browser at <http://localhost:8084> to use the editor.
+The build demo should be available in ./export/demojs2014-playground/demo.png.html
