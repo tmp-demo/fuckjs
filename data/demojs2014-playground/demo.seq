@@ -1,0 +1,1153 @@
+var city_size = 700;
+var num_subdivs = 40;
+
+function generate_map() {
+  return city_subdivision_rec([[
+      { '0': -city_size, '1':  city_size, subdiv: num_subdivs },
+      { '0':  city_size, '1':  city_size, subdiv: num_subdivs },
+      { '0':  city_size, '1': -city_size, subdiv: num_subdivs },
+      { '0': -city_size, '1': -city_size, subdiv: num_subdivs }
+    ]
+  ], num_subdivs, 7);
+}
+
+function uv_buffer(u1, v1, u2, v2) {
+  return [[
+    u1, v1,
+    u2, v1,
+    u2, v2,
+    u2, v2,
+    u1, v2,
+    u1, v1
+  ]];
+}
+
+// u1, v1, u2, v2
+function roof_uv() {     return uv_buffer(0, 0.91, 1.0, 0.99); }
+function street_uv() {   return uv_buffer(0.1, 0.01, 0.45, 0.045); }
+function sidewalk_uv() { return uv_buffer(0.1, 0.055,  0.45, 0.095); }
+function interior_uv() { return uv_buffer(0.1, 0.75,  0.9, 0.87); }
+
+function wall_uv(segment_length, face_or_tail) {
+  return uv_buffer(
+    0, face_or_tail,
+    M.floor(segment_length/4), face_or_tail + 0.199
+  );
+}
+
+function ground_wall_uv(segment_length) {
+  return uv_buffer(
+    0, 0.1,
+    M.floor(segment_length/10), 0.299
+  );
+}
+
+function bastille(geom) {
+  process_extrusions(geom, circle_path([330, 310], 30, 32), [
+    { uv: sidewalk_uv,      raise: 1.5 },
+    { uv: sidewalk_uv,      shrink: 12 },
+    { uv: interior_uv,      raise: 6 },
+    { uv: interior_uv,      shrink: 15 },
+
+    { uv: roof_uv,      raise:   12, shrink: 0.3 },
+    { uv: roof_uv,      shrink:  -0.2 },
+    { uv: roof_uv,      raise:   1 },
+    { uv: roof_uv,      shrink:  0.2 },
+
+    { uv: roof_uv,      raise:   12, shrink: 0.3 },
+    { uv: roof_uv,      shrink:  -0.2 },
+    { uv: roof_uv,      raise:   1 },
+    { uv: roof_uv,      shrink:  0.2 },
+
+    { uv: roof_uv,      raise:   12, shrink: 0.3 },
+    { uv: roof_uv,      shrink:  -0.2 },
+    { uv: roof_uv,      raise:   1 },
+    { uv: roof_uv,      shrink:  0.2 },
+
+    { uv: roof_uv,      shrink: 2, raise:  2 }
+  ], 0);
+
+  process_extrusions(geom, circle_path([330, 310], 12, 4), [
+    { uv: roof_uv,      raise: 10 },
+    { uv: roof_uv,      shrink: 4 },
+    { uv: roof_uv,      raise: 5 },
+    { uv: roof_uv,      shrink: 3 },
+    { uv: roof_uv,      raise:   24 },
+    { uv: roof_uv,      shrink: -2, raise:  4 },
+    { uv: roof_uv,      raise:  2 }
+  ], 0);
+}
+
+function eiffel(geom) {
+ 
+  process_extrusions(geom, circle_path([-100, -100],75, 4), [
+    { uv: roof_uv,      raise: 50 ,shrink: 30 },   
+    { uv: roof_uv,      raise: 50 ,shrink: 10 },    
+    { uv: roof_uv,      raise: 50 ,shrink: 5 },    
+    { uv: roof_uv,      raise: 40 ,shrink: 2 },
+    { uv: roof_uv,      raise: 5 ,shrink: -5 },
+    { uv: roof_uv,      raise: 10 },
+    { uv: roof_uv,      raise: 5 ,shrink: 5 }
+    
+  ], 0, 50);
+ 
+  process_extrusions(geom, circle_path([-200, -100], 30, 4), [
+    { uv: roof_uv,      raise: 50, shrink: 4 , disp:[50,0] }
+  ], 0);
+  process_extrusions(geom, circle_path([0, -100], 30, 4), [
+    { uv: roof_uv,      raise: 50, shrink: 4 , disp:[-50,0] }
+  ], 0);
+  process_extrusions(geom, circle_path([-100, -200], 30, 4), [
+    { uv: roof_uv,      raise: 50, shrink: 4 , disp:[0,50] }
+  ], 0);
+  process_extrusions(geom, circle_path([-100, 0], 30, 4), [
+    { uv: roof_uv,      raise: 50, shrink: 4 , disp:[0,-50] }
+  ], 0);
+  
+  
+}
+
+function process_extrusions(geom, path, ops, skip, z0) {
+  var path2 = deep_clone(path);
+  var path1 = shrink_path(path2, 0.5, 0, 0);
+  var z = z0 || 0;
+
+  // #debug{{
+  var debug_color = 'rgb(0, 0, 0)';
+  // #debug}}
+  if (!skip) {
+    op_loop: for (var op in ops) {
+      var repeat = ops[op].repeat || 1;
+      repeat += ops[op].repeat_rand ? rand_int(ops[op].repeat_rand) : 0;
+      for (; repeat > 0; --repeat) {
+        if (ops[op].shrink) {
+          var shrinked = shrink_path(path1, -ops[op].shrink, z, ops[op].use_subdiv, ops[op].disp);
+          if (!shrinked) {
+            // #debug{{
+            debug_color = 'rgb(255, 0, 0)';
+            // #debug}}
+            break op_loop;
+          }
+        }
+        path2 = path1;
+        path1 = shrinked || path1;
+        var raise = ops[op].raise || 0;
+        join_rings(geom,
+          make_ring(path2, z),
+          make_ring(path1, z + raise),
+          ops[op].uv
+        );
+        z += raise;
+      }
+    }
+  }
+  // #debug{{
+  debug_draw_path(path1, debug_color, city_size+20, city_size+20);
+  // #debug}}
+
+  fill_convex_ring(geom, make_ring(path1, z));
+}
+
+function generate_city_geom(city_paths) {
+  var ops = [
+    //{ raise: 0,  shrink: 1.5},
+    { uv: street_uv,      shrink: 2.1, use_subdiv: 0.2 },
+    { uv: street_uv,      raise:  0.5 },
+    { uv: sidewalk_uv,    shrink: 4 },
+    { uv: ground_wall_uv, raise:  5 },
+    { uv: wall_uv,        raise:  4, repeat: 3, repeat_rand: 2 },
+    { uv: roof_uv,        raise:  2, shrink: 0.5 },
+    { uv: roof_uv,        raise:  1, shrink: 1.5 },
+    { uv: roof_uv,        shrink: 6.5 },
+    { uv: interior_uv,    raise: -13 }
+  ];
+  //var num_extrusions = ops.length + 1;
+
+  // #debug{{
+  map_ctx.fillStyle = 'rgb(250, 250, 250)';
+  map_ctx.fillRect(0,0, 640, 360);
+  for (var p in city_paths) {
+    debug_draw_path(city_paths[p], 'rgb(150, 150, 250)', city_size+20, city_size+20);
+  }
+  // #debug}}
+
+  var geom = {
+    positions: [],
+    normals: [],
+    uvs: []
+  }
+
+  for (i = 0; i < city_paths.length; ++i) {
+    process_extrusions(geom, city_paths[i], ops, plazza(city_paths[i], [330, 310], 60) || plazza(city_paths[i], [-100, -100], 100));
+    /*
+    var path2 = deep_clone(city_paths[i]);
+    var path1 = shrink_path(path2, 0.5, 0, 0);
+
+    var z = 0;
+      // #debug{{
+      var debug_color = 'rgb(0, 0, 0)';
+      // #debug}}
+      op_loop: for (var op in ops) {
+        var repeat = ops[op].repeat || 1;
+        repeat += ops[op].repeat_rand ? rand_int(ops[op].repeat_rand) : 0;
+        for (; repeat > 0; --repeat) {
+          if (ops[op].shrink) {
+            var shrinked = shrink_path(path1, -ops[op].shrink, z, ops[op].use_subdiv);
+            if (!shrinked) {
+              // #debug{{
+              debug_color = 'rgb(255, 0, 0)';
+              // #debug}}
+              break op_loop;
+            }
+          }
+          path2 = path1;
+          path1 = shrinked;
+          var raise = ops[op].raise || 0;
+          join_rings(geom,
+            make_ring(path2, z),
+            make_ring(path1, z + raise),
+            ops[op].uv
+          );
+          z += raise;
+        }
+      }
+    }
+
+    // #debug{{
+    debug_draw_path(path1, debug_color, city_size+20, city_size+20);
+    // #debug}}
+    fill_convex_ring(geom, make_ring(path1, z));
+  */
+  }
+
+  //var plazza_circle = circle_path([380, 387], 30, 12);
+  //join_rings(geom,
+  //  make_ring(plazza_circle, 0),
+  //  make_ring(plazza_circle, 130),
+  //  street_uv
+  //);
+  bastille(geom);
+  eiffel(geom);
+
+  return {
+    buffers: [
+      make_vbo(POS, geom.positions),
+      make_vbo(NORMALS, geom.normals),
+      make_vbo(TEX_COORDS, geom.uvs)
+    ],
+    mode: gl.TRIANGLES,
+    vertex_count: geom.positions.length / 3
+  };
+}
+
+// #debug{{
+document._generate_city_geom = generate_city_geom;
+document._generate_map = generate_map;
+// #debug}}
+
+function texture_fill_rect(x, y, w, h, style) {
+  var sz = 2048;
+  textureContext.fillStyle = style;
+  textureContext.fillRect(x*sz, y*sz, w*sz, h*sz);
+}
+
+function create_buildings_texture() {
+  clear_texture_canvas();
+  texture_fill_rect(0, 0, 1, 1, "#D6B363")
+  texture_fill_rect(0, 0.0, 0.5, 0.1, "#D6B363") // street
+  texture_fill_rect(0, 0.1, 0.5, 0.1, "#D6B363") // sidewalk
+  texture_fill_rect(0.5, 0, 0.5, 0.2, "#D6B363") // grass
+  texture_fill_rect(0, 0.1, 0.5, 0.1, "#D6B363") // grass
+
+  texture_fill_rect(0.4, 0.35, 0.2, 0.3, "#000") // window inner
+  texture_fill_rect(0.4, 0.35, 0.2, 0.3, "#000") // window outer
+}
+
+function create_text_texture(fontSize, text) {
+  clear_texture_canvas();
+  
+  fontSize *= 100;
+  textureContext.font = fontSize + "px Calibri";
+
+  var width = 3 + textureContext.measureText(text).width|0,
+    height = fontSize * 1.50;
+  
+  textureContext.fillStyle = "#fff";
+  textureContext.fillText(text, 2, fontSize);
+  
+  return [create_texture(width, height, gl.RGBA, textureContext.getImageData(0, 0, width, height).data, false, true), width / height];
+}
+
+function create_badge_texture(badgeDiameter, text1, text2, text3) {
+  clear_texture_canvas();
+  
+  badgeDiameter *= 100;
+  // stamp
+  var gradient = textureContext.createLinearGradient(0, 0, badgeDiameter, badgeDiameter);
+  gradient.addColorStop(0, "#7bf");
+  gradient.addColorStop(1, "#579");
+  textureContext.fillStyle = gradient;
+  textureContext.beginPath();
+  textureContext.moveTo(badgeDiameter * 0.99, badgeDiameter / 2);
+  for (var i = 1; i < 49; ++i) {
+    var radius = badgeDiameter * ((i % 2) ? 0.4 : 0.49);
+    textureContext.lineTo(badgeDiameter / 2 + radius * M.cos(i / 24 * M.PI), badgeDiameter / 2 + radius * M.sin(i / 24 * M.PI));
+  }
+  textureContext.fill();
+  
+  // transparent circle
+  textureContext.beginPath();
+  textureContext.globalCompositeOperation = 'destination-out';
+  textureContext.moveTo(badgeDiameter * 0.85, badgeDiameter / 2);
+  textureContext.arc(badgeDiameter / 2, badgeDiameter / 2, badgeDiameter * 0.35, M.PI*2, false);
+  textureContext.lineWidth = badgeDiameter / 2 * 0.07;
+  textureContext.stroke();
+  textureContext.globalCompositeOperation = 'source-over';
+  
+  textureContext.fillStyle = "#fff";
+  
+  textureContext.font = badgeDiameter + "px impact";
+  var width = textureContext.measureText(text2 || text1).width;
+  
+  var fontSize = 0.8 * badgeDiameter * badgeDiameter / width;
+  if (text3) {
+     fontSize *= 0.7; 
+  }
+  textureContext.font = fontSize + "px impact";
+  
+  width = textureContext.measureText(text1).width;
+
+  if (text2) {
+    var t3 = text3 ? 3 : 2;
+    var s = 
+    textureContext.fillText(text1, (badgeDiameter - width)/2, badgeDiameter / t3);
+    textureContext.fillText(text2, (badgeDiameter - textureContext.measureText(text2).width)/2, badgeDiameter / t3 + fontSize * 1.0);
+    if (text3) {
+      textureContext.fillText(text3, (badgeDiameter - textureContext.measureText(text3).width)/2, badgeDiameter / 3 + fontSize * 2.0);
+    }
+  } else
+    textureContext.fillText(text1, (badgeDiameter - width)/2, badgeDiameter / 2 + fontSize / 3);
+  
+  var height = width = badgeDiameter;
+  
+  return create_texture(width, height, gl.RGBA, textureContext.getImageData(0, 0, width, height).data, false, true);
+}
+
+function create_street_sign_texture(text) {
+  clear_texture_canvas();
+  
+  textureContext.font = "100px verdana";
+
+  var width = 100 + textureContext.measureText(text).width,
+    height = 140,
+    margin = 12,
+    margin2 = 2 * margin;
+  
+  textureContext.fillStyle = "#579";
+  textureContext.fillRect(0, 0, width, height);
+  
+  textureContext.beginPath();
+  textureContext.moveTo(margin2, margin);
+  textureContext.lineTo(width - margin2, margin);
+  textureContext.arcTo(width - margin2, margin2, width - margin, margin2, margin);
+  textureContext.lineTo(width - margin, height - margin2);
+  textureContext.arcTo(width - margin2, height - margin2, width - margin2, height - margin, margin);
+  textureContext.lineTo(margin2, height - margin);
+  textureContext.arcTo(margin2, height - margin2, margin, height - margin2, margin);
+  textureContext.lineTo(margin, margin2);
+  textureContext.arcTo(margin2, margin2, margin2, margin, margin);
+  textureContext.lineWidth = 2;
+  textureContext.strokeStyle = "#fff";
+  textureContext.stroke();
+  
+  textureContext.fillStyle = "#fff";
+  textureContext.fillText(text, 50, 110);
+  
+  return create_texture(width, height, gl.RGBA, textureContext.getImageData(0, 0, width, height).data, false, true);
+}
+
+function create_dev_tool() {
+  clear_texture_canvas();
+  
+  var width = 2048,
+    height = 300;
+  
+  textureContext.fillStyle = '#222';
+  textureContext.fillRect(0, 0, width, height);
+  
+  textureContext.fillStyle = '#fff';
+  textureContext.fillRect(2, 40, width - 4, height);
+  
+  textureContext.font = 30 + "px serif";
+  textureContext.fillText("Elements  Network  Sources  Timeline  Profiles  Console", 40, 30);
+  
+  textureContext.font = 40 + "px courier";
+  textureContext.fillStyle = '#f11';
+  textureContext.fillText("TypeError: undefined is not a function", 20, 80);
+  
+  return create_texture(width, height, gl.RGBA, textureContext.getImageData(0, 0, width, height).data, false, true);
+}
+
+function text_alpha(time, appearance, disappearance) {
+  return M.max(M.min(M.min(time - appearance, disappearance - time) * 0.8, 1), 0);
+}
+
+function text_x(x, time, appearance) {
+  return x + M.exp((appearance - time) * 0.2) * 0.2;
+}
+
+function text_y(y, range_start, factor, time, appearance) {
+  return y + M.exp((appearance - time) * factor) * range_start
+}
+
+function badge_size(t) {
+  return 0.4 - M.sqrt(1 - (t % 1)) * 0.1;
+}
+
+function badge_pass(texture, x, y, size, angle_base, angle_range, angle_offset, appearance, disappearance, ghost) {
+  return {
+    render_to: {color: textures.tex3},
+    texture_inputs: [texture],
+    render: draw_quad,
+    program: programs.badge,
+    update: function(time)
+    {
+      if (ghost) {
+        uniforms["text_params"] = [x, y, size * ((time.scene % 2) / 4 + 0.75), angle_base];
+        uniforms["mask"] = [1, 1, 1, (time.scene > appearance && time.scene < disappearance && (time.scene % 2) >= 1) ? 2 - (time.scene % 2) : 0];
+      } else {
+        uniforms["text_params"] = [x, y, size * (1 - M.abs(time.scene % 2 - 1) * 0.2), angle_base + M.sin(time.scene + angle_offset) * angle_range];
+        uniforms["mask"] = [1, 1, 1, Math.max(Math.min(Math.min(time.scene - appearance,disappearance - time.scene), 1), 0)];
+      }
+    }
+  }
+}
+
+function demo_init() {
+  SEED = 1;
+  var width = canvas.width;
+  var height = canvas.height;
+
+  gl.getExtension("WEBGL_depth_texture")
+
+  textures.depth      = create_texture(width, height, gl.DEPTH_COMPONENT);
+  textures.buildings  = create_texture(512, 512, 0, 0, 1);
+
+  textures.tex1       = create_texture();
+  textures.tex3       = create_texture();
+
+  // #debug{{
+  geometries.plane = {
+    buffers: [
+      make_vbo(POS, [
+        -10, 0, -10,
+        -10, 0, 10,
+        10, 0, 10,
+        10, 0, 10,
+        10, 0, -10,
+        -10, 0, -10
+      ]),
+      make_vbo(NORMALS, [
+        0, 1, 0,
+        1, 1, 0,
+        0, 1, 0,
+        0, 0, 0,
+        0, 1, 0,
+        0, 1, 1
+      ]),
+      make_vbo(TEX_COORDS, [
+        0, 0,
+        0, 1,
+        1, 1,
+        1, 1,
+        1, 0,
+        0, 0
+      ])
+    ],
+    mode: gl.TRIANGLES,
+    vertex_count: 6
+  }
+  // #debug}}
+
+  var city_map = generate_map();
+  //var city_graph = generate_city_graph(city_map);
+  geometries.city = generate_city_geom(city_map);
+  window.map = city_map;
+
+  textures.demoJSIsBack = create_text_texture(1, "DemoJS is back");
+  
+  textures.comeAndEnjoy = create_text_texture(1, "Come and enjoy");
+  textures.thePureSensation = create_text_texture(1, "the pure sensation of JS");
+  
+  textures.noCompilationTime = create_text_texture(1, "No compilation time");
+  textures.justRelax = create_text_texture(1, "just relax");
+  
+  textures.noSegmentationFaults = create_text_texture(1, "No segmentation faults");
+  textures.everythingUnderControl = create_text_texture(1, "everything under control");
+  
+  textures.devTool = create_dev_tool();
+
+  textures.bFuckJS = create_badge_texture(8, "FuckJS");
+  
+  textures.youKnowWhat = create_text_texture(1, "You know what?");
+  textures.thisTime = create_text_texture(1, "This time");
+  textures.notOnlyForJS = create_text_texture(2, "it's not JS only!");
+  textures.comeParty = create_text_texture(2, "Come party with us");
+  textures.inParis = create_text_texture(2, "in Paris!"); 
+
+  
+  textures.bCpp = create_badge_texture(2, "C++");
+  textures.bASM = create_badge_texture(2, "ASM");
+  textures.bHaskell = create_badge_texture(2, "Haskell");
+  textures.bOldskool = create_badge_texture(2, "Oldskool");
+  textures.bToaster = create_badge_texture(2, "Toaster");
+  textures.bWebfunge = create_badge_texture(2, "Webfunge");
+  
+  textures.showYourSkills = create_text_texture(1, "Show your skills");
+  textures.getTheGlory = create_text_texture(2, "Get the glory!");
+  
+  textures.b1k = create_badge_texture(2, "1k");
+  textures.b8k = create_badge_texture(2, "8k");
+  textures.bDemo = create_badge_texture(2, "demo");
+  
+  textures.date = create_text_texture(1, "Oct 10-11, 2014");
+  textures.location = create_text_texture(1, "Isart Digital, Paris");
+  textures.conferences = create_text_texture(2, "Conferences");
+  textures.concerts = create_text_texture(2, "Concerts");
+  textures.come = create_text_texture(2, "Come");
+  textures.to = create_text_texture(1, "to");
+  textures.demojs = create_text_texture(2, "DemoJS!");
+
+
+  textures.bFreeEntrance = create_badge_texture(8, "FREE", "entrance");
+  textures.bRemoteAllowed = create_badge_texture(8, "Remote", "entries", "allowed");
+  
+  uniforms["light"] = [0.707, 0.707, 0];
+  //uniforms["near"] = 0.98;
+  //uniforms["far"] = 0.998;
+  uniforms["focus"] = 100;
+
+  scenes = [
+    // ------------------------------ pre-render ----------------------------------
+    {
+      duration: 0,
+      passes: [
+        {
+          render_to: {color: textures.buildings},
+          render: draw_quad,
+          program: programs.buildings_mtl
+        },
+        {
+          update: function() {
+            // Make the texture repeatable. We need to do this after rendering
+            // into it because rendering into a repeatable texture isn't supported.
+            set_texture_flags(textures.buildings.tex, 1, 1, 1);
+          }
+        }
+      ]
+    },
+    intro_scene(),
+    fuck_js(),
+    not_only_js_scene(),
+    compos_scene(),
+    location_scene(),
+    
+    // clear screen after ending glitch
+    {
+      duration: 8,
+      passes: [
+        {
+          render: clear
+        }
+      ]
+    }
+  ];
+}
+
+function intro_scene() {
+  return {
+    duration: 80,
+    passes: [
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: clear
+      },
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: draw_quad,
+        program: programs.sky
+      },
+      {
+        texture_inputs: [textures.buildings],
+        render_to: {color: textures.tex1, depth: textures.depth},
+        update: function(time) {
+          uniforms["cam_pos"] = animate([
+              [0, [0, 200, -500]],
+              [32, [0, 60, -300]],
+              [64, [100, 30, 0]]
+            ], time.scene);
+          uniforms["cam_target"] = animate([
+              [0, [0, 400, -300]],
+              [32, [0, -100, -100]],
+              [64, [200, 80, 200]]
+            ], time.scene);
+        },
+        render: draw_mesh(geometries.city),
+        program: programs.city
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [
+          textures.tex1,
+          textures.depth
+        ],
+        render: draw_quad,
+        program: programs.depth_of_field
+      },
+      {
+        render_to: {color: textures.tex3},
+        blend: [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA],
+        texture_inputs: [textures.demoJSIsBack[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, text_y(0.5, -0.4, 0.2, time.scene, 16), 0.3, textures.demoJSIsBack[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 16, 26)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.comeAndEnjoy[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(-0.3, time.scene, 30), 0.3, 0.15, textures.comeAndEnjoy[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 30, 40)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.thePureSensation[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(-0.1, time.scene, 32), 0.1, 0.18, textures.thePureSensation[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 32, 40)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.noCompilationTime[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(-0.3, time.scene, 42), 0, 0.18, textures.noCompilationTime[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 42, 52)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.justRelax[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(-0.5, time.scene, 44), -0.2, 0.15, textures.justRelax[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 44, 52)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.noSegmentationFaults[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          var t = M.min(time.scene, 64);
+          uniforms["text_params"] = [text_x(-0.2, t, 54), 0.3, 0.18, textures.noSegmentationFaults[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(t, 54, 100)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.everythingUnderControl[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          var t = M.min(time.scene, 64);
+          uniforms["text_params"] = [text_x(0, t, 56), 0.1, 0.15, textures.everythingUnderControl[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(t, 56, 100)];
+        }
+      },
+      {
+        texture_inputs: [textures.tex3],
+        render: draw_quad,
+        program: programs.posteffect,
+        update: function(time)
+        {
+          uniforms["glitch"] = M.min(M.max(time.scene - 48, 0) * 0.06 / 16 + (time.scene >= 64), 1.0);
+        }
+      },
+      {
+        texture_inputs: [textures.devTool],
+        render: draw_quad,
+        program: programs.quad,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, -0.75 + Math.min(time.scene - 74, 0), 1, -0.25];
+          uniforms["mask"] = [1, 1, 1, 1];
+        }
+      }
+    ]
+  }
+}
+
+function fuck_js()
+{
+  return {
+    duration: 32,
+    passes: [
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: clear
+      },
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: draw_quad,
+        program: programs.sky
+      },
+      {
+        texture_inputs: [textures.buildings],
+        render_to: {color: textures.tex1, depth: textures.depth},
+        update: function(time) {
+          uniforms["cam_pos"] = animate([
+              [0, [500, 50, 200]],
+              [0, [250, 100, 300]],
+              [32, [0, 30, 500]]
+            ], time.scene);
+          uniforms["cam_target"] = [1000, 0, 0];
+          uniforms["cam_tilt"] = time.scene;
+        },
+        render: draw_mesh(geometries.city),
+        program: programs.city
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [
+          textures.tex1,
+          textures.depth
+        ],
+        render: draw_quad,
+        program: programs.depth_of_field
+      },
+      {
+        render_to: {color: textures.tex3},
+        blend: [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA],
+        texture_inputs: [textures.bFuckJS],
+        render: draw_quad,
+        program: programs.badge,
+        update: function(time)
+        {
+          var pulse = M.exp(-time.scene % 1);
+          uniforms["text_params"] = [0, 0, 1 + pulse * 0.2, pulse - M.sin(time.scene)];
+          uniforms["mask"] = [1, 1, 1, pulse * 0.8];
+          uniforms["glitch"] = M.pow(pulse, 30);
+        }
+      },
+      badge_pass(textures.bFuckJS, 0, 0, 1, 0.2, 0.2, 0, 0, 32),
+      {
+        texture_inputs: [textures.tex3],
+        render: draw_quad,
+        program: programs.posteffect
+      }
+    ]
+  };
+}
+
+function not_only_js_scene() {
+  return {
+    duration: 32,
+    passes: [
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: clear
+      },
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: draw_quad,
+        program: programs.sky
+      },
+      {
+        texture_inputs: [textures.buildings],
+        render_to: {color: textures.tex1, depth: textures.depth},
+        update: function(time) {
+          uniforms["cam_pos"] = animate([
+              [0, [370, 50, 0]],
+              [8, [353, 10, -89.4]],
+              [32, [303, -10, -358]]
+            ], time.scene);
+          uniforms["cam_target"] = animate([
+              [0, [352, 20, -89.4]],
+              [8, [280, 10, -447]],
+              [32, [400, -10, -600]]
+            ], time.scene);
+            
+          uniforms["cam_tilt"] = time.scene_norm - 0.5;
+        },
+        render: draw_mesh(geometries.city),
+        program: programs.city
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [
+          textures.tex1,
+          textures.depth
+        ],
+        render: draw_quad,
+        program: programs.depth_of_field
+      },
+      {
+        render_to: {color: textures.tex3},
+        blend: [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA],
+        texture_inputs: [textures.youKnowWhat[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, text_y(0.7, -0.3, 0.5, time.scene, 2), 0.18, textures.youKnowWhat[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, time.scene > 2];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        blend: [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA],
+        texture_inputs: [textures.thisTime[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, text_y(0.4, -0.3, 0.5, time.scene, 2), 0.18, textures.thisTime[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, time.scene > 3];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.notOnlyForJS[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, text_y(0.1, -0.3, 0.5, time.scene, 4), 0.20, textures.notOnlyForJS[1]];
+          uniforms["mask"] = [0.7, 0.7, 0.7,, time.scene > 4];
+        }
+      },
+      badge_pass(textures.bCpp, -0.7, -0.4, 0.4, 0.2, 0.2, 0, 8, 26, 1),
+      badge_pass(textures.bCpp, -0.7, -0.4, 0.4, 0.2, 0.2, 0, 8, 26),
+      badge_pass(textures.bASM, -0.15, -0.45, 0.4, -0.1, 0.2, 0, 10, 26, 1),
+      badge_pass(textures.bASM, -0.15, -0.45, 0.4, -0.1, 0.2, 0, 10, 26),
+      badge_pass(textures.bOldskool, 0.4, -0.4, 0.4, -0.1, 0.2, 0, 12, 26, 1),
+      badge_pass(textures.bOldskool, 0.4, -0.4, 0.4, -0.1, 0.2, 0, 12, 26),
+      badge_pass(textures.bHaskell, -0.45, -0.7, 0.4, -0.4, 0.2, 0, 14, 26, 1),
+      badge_pass(textures.bHaskell, -0.45, -0.7, 0.4, -0.4, 0.2, 0, 14, 26),
+      badge_pass(textures.bToaster, 0.1, -0.8, 0.4, 0.6, 0.2, 0, 16, 26, 1),
+      badge_pass(textures.bToaster, 0.1, -0.8, 0.4, 0.6, 0.2, 0, 16, 26),
+      badge_pass(textures.bWebfunge, 0.7, -0.7, 0.4, -0.2, 0.2, 0, 18, 26, 1),
+      badge_pass(textures.bWebfunge, 0.7, -0.7, 0.4, -0.2, 0.2, 0, 18, 26),
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.comeParty[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0.008, text_y(-0.305, -0.3, 0.5, time.scene, 27), 0.20, textures.comeParty[1]];
+          uniforms["mask"] = [0.3, 0.3, 0.3, time.scene > 28];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.comeParty[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, text_y(-0.3, -0.3, 0.5, time.scene, 27), 0.20, textures.comeParty[1]];
+          uniforms["mask"] = [0.7, 0.7, 0.8, time.scene > 28];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.inParis[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, text_y(-0.6, -0.3, 0.5, time.scene, 28), 0.20, textures.inParis[1]];
+          uniforms["mask"] = [0.7, 0.7, 0.8, time.scene > 29];
+        }
+      },
+      {
+        texture_inputs: [textures.tex3],
+        render: draw_quad,
+        program: programs.posteffect,
+        update: function(time)
+        {
+          uniforms["glitch"] = 0;
+        }
+      }
+    ]
+  };
+}
+
+function compos_scene() {
+  return {
+    duration: 32,
+    passes: [
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: clear
+      },
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: draw_quad,
+        program: programs.sky
+      },
+      {
+        texture_inputs: [textures.buildings],
+        render_to: {color: textures.tex1, depth: textures.depth},
+        update: function(time) {
+          uniforms["cam_pos"] = animate([
+              [0, [-323, 150, -303]],
+              [32, [360, 100, -303]]
+            ], time.scene);
+          uniforms["cam_target"] = animate([
+              [0, [-320, 0, -303]],
+              [32, [380, 0, -303]]
+            ], time.scene);
+        },
+        render: draw_mesh(geometries.city),
+        program: programs.city
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [
+          textures.tex1,
+          textures.depth
+        ],
+        render: draw_quad,
+        program: programs.depth_of_field
+      },
+      {
+        render_to: {color: textures.tex3},
+        blend: [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA],
+        texture_inputs: [textures.showYourSkills[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, text_y(-0.7, 0.3, 0.5, time.scene, 2), 0.18, textures.demoJSIsBack[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, time.scene > 2];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.getTheGlory[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [0, text_y(-0.4, 0.3, 0.5, time.scene, 4), 0.28, textures.getTheGlory[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, time.scene > 4];
+        }
+      },
+      badge_pass(textures.b1k, -0.6, 0.2, 0.4, 0.2, 0.2, 0, 8, 32, 1),
+      badge_pass(textures.b1k, -0.6, 0.2, 0.4, 0.2, 0.2, 0, 8, 32),
+      badge_pass(textures.b8k, 0, 0.5, 0.4, -0.1, 0.2, 0, 10, 32, 1),
+      badge_pass(textures.b8k, 0, 0.5, 0.4, -0.1, 0.2, 0, 10, 32),
+      badge_pass(textures.bDemo, 0.5, 0.1, 0.4, -0.4, 0.2, 0, 12, 32, 1),
+      badge_pass(textures.bDemo, 0.5, 0.1, 0.4, -0.4, 0.2, 0, 12, 32),
+      {
+        texture_inputs: [textures.tex3],
+        render: draw_quad,
+        program: programs.posteffect,
+        update: function(time)
+        {
+          uniforms["glitch"] = 0;
+        }
+      }
+    ]
+  }
+}
+
+function location_scene() {
+  return {
+    duration: 56,
+    passes: [
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: clear
+      },
+      {
+        render_to: {color: textures.tex1, depth: textures.depth},
+        render: draw_quad,
+        program: programs.sky
+      },
+      {
+        texture_inputs: [textures.buildings],
+        render_to: {color: textures.tex1, depth: textures.depth},
+        update: function(time) {
+          uniforms["cam_pos"] = animate([
+              [0, [340, 50, -300]],
+              [8, [360, 10, -330]],
+              [16, [350, 15, -350]],
+              [24, [320, 5, -350]],
+              [32, [250, 50, -320]],
+              [48, [150, 50, -320]]
+            ], time.scene);
+          uniforms["cam_target"] = animate([
+              [0, [330, 0, -310]],
+              [8, [320, 10, -320]],
+              [16, [300, 10, -310]],
+              [24, [100, 20, -300]],
+              [32, [80, 70, -250]],
+              [48, [35, 40, -250]]
+            ], time.scene);
+          
+           uniforms["cam_tilt"] = M.cos(time.scene_norm * M.PI) * 0.4;
+        },
+        render: draw_mesh(geometries.city),
+        program: programs.city
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [
+          textures.tex1,
+          textures.depth
+        ],
+        render: draw_quad,
+        program: programs.depth_of_field
+      },
+      {
+        render_to: {color: textures.tex3},
+        blend: [gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA],
+        texture_inputs: [textures.date[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.35, time.scene, 4), 0.7, 0.2, textures.date[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 4, 32)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.location[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.35, time.scene, 8), 0.4, 0.14, textures.location[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 8, 32)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.concerts[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.36, time.scene, 16), -0.6, 0.22, textures.concerts[1]];
+          uniforms["mask"] = [0.6, 0.6, 0.6, text_alpha(time.scene, 16, 32)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.conferences[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.36, time.scene, 12), -0.2, 0.18, textures.conferences[1]];
+          uniforms["mask"] = [0.6, 0.6, 0.6, text_alpha(time.scene, 12, 32)];
+        }
+      },
+
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.conferences[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.35, time.scene, 12), -0.2, 0.18, textures.conferences[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 12, 32)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.concerts[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.35, time.scene, 16), -0.6, 0.22, textures.concerts[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 16, 32)];
+        }
+      },
+      
+
+      badge_pass(textures.bFreeEntrance, -0.5, -0.4, 0.6, 0.2, 0.2, 0, 22, 32, 1),
+      badge_pass(textures.bFreeEntrance, -0.5, -0.4, 0.6, 0.2, 0.2, 0, 22, 32),
+      badge_pass(textures.bRemoteAllowed, -0.7, 0.4, 0.4, -0.3, 0.2, 0.7, 26, 32, 1),
+      badge_pass(textures.bRemoteAllowed, -0.7, 0.4, 0.4, -0.3, 0.2, 0.7, 26, 32),
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.come[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.35, time.scene, 32), .5, 0.22, textures.come[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 32, 64)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.to[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.35, time.scene, 32), 0, 0.22, textures.to[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 33, 64)];
+        }
+      },
+      {
+        render_to: {color: textures.tex3},
+        texture_inputs: [textures.demojs[0]],
+        render: draw_quad,
+        program: programs.text,
+        update: function(time)
+        {
+          uniforms["text_params"] = [text_x(0.35, time.scene, 32), -.5, 0.22, textures.demojs[1]];
+          uniforms["mask"] = [0.2, 0.3, 0.4, text_alpha(time.scene, 34, 64)];
+        }
+      },
+      {
+        texture_inputs: [textures.tex3],
+        render: draw_quad,
+        program: programs.posteffect,
+        update: function(time)
+        {
+          uniforms["glitch"] = time.scene > 48 ? 1.0 : 0.0;
+        }
+      }
+    ]
+  }
+}
