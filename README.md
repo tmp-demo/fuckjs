@@ -5,8 +5,13 @@ Invitation intro for DemoJS 2014.
 
 Released at Evoke 2014, see [pouet link](http://www.pouet.net/prod.php?which=63938).
 
-How to run
-----------
+How to run it the easy way
+--------------------------
+
+Just launch the [live version](http://tmp.graphics/releases/fuckjs/) or the prebuilt version in `./data/demojs2014-playground/release`.
+
+How to build it yourself
+------------------------
 
 Make sure you have the following installed and available from PATH:
  * sh
@@ -20,4 +25,14 @@ Then run the following command (cygwin or linux):
 ./EXPORT.sh demojs2014-playground
 ```
 
-The build demo should be available in ./export/demojs2014-playground/demo.png.html
+The built demo should be available in `./export/demojs2014-playground/demo.png.html`
+
+Authors
+-------
+
+@bloutiouf
+@gruck
+@halfbyte
+@nical
+@padenot
+@wsmind
