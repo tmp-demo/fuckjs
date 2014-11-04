@@ -30,9 +30,9 @@ The built demo should be available in `./export/demojs2014-playground/demo.png.h
 Authors
 -------
 
-@bloutiouf
-@gruck
-@halfbyte
-@nical
-@padenot
-@wsmind
+[Bloutiouf](https://twitter.com/Bloutiouf)
+[Gruck](https://twitter.com/gruckmotte)
+[halfbyte](https://twitter.com/halfbyte)
+[nical](https://twitter.com/nicalsilva)
+[padenot](https://twitter.com/padenot)
+[wsmind](https://twitter.com/wsmind)
