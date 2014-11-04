@@ -30,9 +30,9 @@ The built demo should be available in `./export/demojs2014-playground/demo.png.h
 Authors
 -------
 
-[Bloutiouf](https://twitter.com/Bloutiouf)
-[Gruck](https://twitter.com/gruckmotte)
-[halfbyte](https://twitter.com/halfbyte)
-[nical](https://twitter.com/nicalsilva)
-[padenot](https://twitter.com/padenot)
-[wsmind](https://twitter.com/wsmind)
+[@Bloutiouf](https://twitter.com/Bloutiouf)
+[@gruckmotte](https://twitter.com/gruckmotte)
+[@halfbyte](https://twitter.com/halfbyte)
+[@nicalsilva](https://twitter.com/nicalsilva)
+[@padenot](https://twitter.com/padenot)
+[@wsmind](https://twitter.com/wsmind)
